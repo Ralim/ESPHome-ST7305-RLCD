@@ -39,7 +39,7 @@ spi:
 # External component
 external_components:
   - source: github://kylehase/ESPHome-ST7305-RLCD
-    components: [ st7305_rlcd ]
+    components: [st7305_rlcd]
     refresh: 0s
 
 # =============================================================================
@@ -62,7 +62,7 @@ display:
     dc_pin: GPIO5
     reset_pin: GPIO41
     update_interval: never
-    
+
     lambda: |-
       // Get dimensions
       int w = it.get_width();

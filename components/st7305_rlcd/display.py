@@ -6,13 +6,13 @@ from esphome import pins
 from esphome.components import display, spi
 from esphome.const import (
     CONF_DC_PIN,
+    CONF_HEIGHT,
     CONF_ID,
     CONF_LAMBDA,
     CONF_MODEL,
     CONF_RESET_PIN,
     CONF_UPDATE_INTERVAL,
     CONF_WIDTH,
-    CONF_HEIGHT,
 )
 
 CODEOWNERS = []

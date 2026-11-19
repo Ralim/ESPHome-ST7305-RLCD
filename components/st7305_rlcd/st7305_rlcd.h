@@ -16,31 +16,32 @@
 
 #pragma once
 
+#include "esphome/components/display/display_buffer.h"
+#include "esphome/components/spi/spi.h"
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
-#include "esphome/components/spi/spi.h"
-#include "esphome/components/display/display_buffer.h"
 
 namespace esphome {
 namespace st7305_rlcd {
 
 /// Panel model enumeration
 enum ST7305Model : uint8_t {
-  ST7305_MODEL_WAVESHARE_400X300 = 0,  ///< Landscape 2×4 blocks
-  ST7305_MODEL_OSPTEK_200X200,         ///< Square 4×2 blocks
-  ST7305_MODEL_CUSTOM,                 ///< User-defined
+  ST7305_MODEL_WAVESHARE_400X300 = 0, ///< Landscape 2×4 blocks
+  ST7305_MODEL_OSPTEK_200X200,        ///< Square 4×2 blocks
+  ST7305_MODEL_CUSTOM,                ///< User-defined
 };
 
 /// Pixel block orientation (determines LUT calculation)
 enum ST7305Orientation : uint8_t {
-  ST7305_ORIENTATION_LANDSCAPE = 0,  ///< 2 cols × 4 rows per byte
-  ST7305_ORIENTATION_PORTRAIT,       ///< 4 cols × 2 rows per byte
+  ST7305_ORIENTATION_LANDSCAPE = 0, ///< 2 cols × 4 rows per byte
+  ST7305_ORIENTATION_PORTRAIT,      ///< 4 cols × 2 rows per byte
 };
 
-class ST7305RLCD : public display::DisplayBuffer,
-                   public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW,
-                                         spi::CLOCK_PHASE_LEADING, spi::DATA_RATE_10MHZ> {
- public:
+class ST7305RLCD
+    : public display::DisplayBuffer,
+      public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW,
+                            spi::CLOCK_PHASE_LEADING, spi::DATA_RATE_10MHZ> {
+public:
   void setup() override;
   void update() override;
   void dump_config() override;
@@ -52,7 +53,9 @@ class ST7305RLCD : public display::DisplayBuffer,
   void set_model(ST7305Model model) { this->model_ = model; }
   void set_width(uint16_t width) { this->width_ = width; }
   void set_height(uint16_t height) { this->height_ = height; }
-  void set_orientation(ST7305Orientation orientation) { this->orientation_ = orientation; }
+  void set_orientation(ST7305Orientation orientation) {
+    this->orientation_ = orientation;
+  }
 
   /// Enter sleep mode (lowest power, display blanks, RAM retained)
   void sleep();
@@ -67,9 +70,11 @@ class ST7305RLCD : public display::DisplayBuffer,
   /// Turn display off (RAM retained, instant recovery)
   void display_off();
 
-  display::DisplayType get_display_type() override { return display::DisplayType::DISPLAY_TYPE_BINARY; }
+  display::DisplayType get_display_type() override {
+    return display::DisplayType::DISPLAY_TYPE_BINARY;
+  }
 
- protected:
+protected:
   void draw_absolute_pixel_internal(int x, int y, Color color) override;
   int get_width_internal() override { return this->width_; }
   int get_height_internal() override { return this->height_; }
@@ -105,5 +110,5 @@ class ST7305RLCD : public display::DisplayBuffer,
   uint8_t *pixel_bit_lut_{nullptr};
 };
 
-}  // namespace st7305_rlcd
-}  // namespace esphome
+} // namespace st7305_rlcd
+} // namespace esphome

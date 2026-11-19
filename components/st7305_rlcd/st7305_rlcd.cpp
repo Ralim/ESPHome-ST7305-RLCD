@@ -11,8 +11,8 @@
  */
 
 #include "st7305_rlcd.h"
-#include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
+#include "esphome/core/log.h"
 
 namespace esphome {
 namespace st7305_rlcd {
@@ -41,10 +41,12 @@ void ST7305RLCD::setup() {
   this->spi_setup();
 
   // Allocate display buffer
-  ExternalRAMAllocator<uint8_t> buffer_allocator(ExternalRAMAllocator<uint8_t>::ALLOW_FAILURE);
+  ExternalRAMAllocator<uint8_t> buffer_allocator(
+      ExternalRAMAllocator<uint8_t>::ALLOW_FAILURE);
   this->buffer_ = buffer_allocator.allocate(this->buffer_size_);
   if (this->buffer_ == nullptr) {
-    ESP_LOGE(TAG, "Failed to allocate display buffer (%zu bytes)", this->buffer_size_);
+    ESP_LOGE(TAG, "Failed to allocate display buffer (%zu bytes)",
+             this->buffer_size_);
     this->mark_failed();
     return;
   }
@@ -67,39 +69,40 @@ void ST7305RLCD::setup() {
 
 void ST7305RLCD::apply_model_settings_() {
   switch (this->model_) {
-    case ST7305_MODEL_WAVESHARE_400X300:
-      this->width_ = 400;
-      this->height_ = 300;
-      this->orientation_ = ST7305_ORIENTATION_LANDSCAPE;
-      this->buffer_size_ = (400 * 300) / 8;  // 15000 bytes
-      this->col_start_ = 0x12;
-      this->col_end_ = 0x2A;
-      this->row_start_ = 0x00;
-      this->row_end_ = 0xC7;
-      break;
+  case ST7305_MODEL_WAVESHARE_400X300:
+    this->width_ = 400;
+    this->height_ = 300;
+    this->orientation_ = ST7305_ORIENTATION_LANDSCAPE;
+    this->buffer_size_ = (400 * 300) / 8; // 15000 bytes
+    this->col_start_ = 0x12;
+    this->col_end_ = 0x2A;
+    this->row_start_ = 0x00;
+    this->row_end_ = 0xC7;
+    break;
 
-    case ST7305_MODEL_OSPTEK_200X200:
-      this->width_ = 200;
-      this->height_ = 200;
-      this->orientation_ = ST7305_ORIENTATION_PORTRAIT;
-      this->buffer_size_ = (200 * 200) / 8;  // 5000 bytes
-      // Address window for 200×200 - estimated based on panel size
-      this->col_start_ = 0x13;
-      this->col_end_ = 0x25;
-      this->row_start_ = 0x00;
-      this->row_end_ = 0x63;
-      break;
+  case ST7305_MODEL_OSPTEK_200X200:
+    this->width_ = 200;
+    this->height_ = 200;
+    this->orientation_ = ST7305_ORIENTATION_PORTRAIT;
+    this->buffer_size_ = (200 * 200) / 8; // 5000 bytes
+    // Address window for 200×200 - estimated based on panel size
+    this->col_start_ = 0x13;
+    this->col_end_ = 0x25;
+    this->row_start_ = 0x00;
+    this->row_end_ = 0x63;
+    break;
 
-    case ST7305_MODEL_CUSTOM:
-      // User has set width_, height_, orientation_ directly
-      this->buffer_size_ = (this->width_ * this->height_) / 8;
-      // User should also set address window via separate methods if needed
-      break;
+  case ST7305_MODEL_CUSTOM:
+    // User has set width_, height_, orientation_ directly
+    this->buffer_size_ = (this->width_ * this->height_) / 8;
+    // User should also set address window via separate methods if needed
+    break;
   }
 
-  ESP_LOGD(TAG, "Model settings: %dx%d, %s, buffer=%zu bytes",
-           this->width_, this->height_,
-           this->orientation_ == ST7305_ORIENTATION_LANDSCAPE ? "landscape" : "portrait",
+  ESP_LOGD(TAG, "Model settings: %dx%d, %s, buffer=%zu bytes", this->width_,
+           this->height_,
+           this->orientation_ == ST7305_ORIENTATION_LANDSCAPE ? "landscape"
+                                                              : "portrait",
            this->buffer_size_);
 }
 
@@ -108,25 +111,28 @@ void ST7305RLCD::dump_config() {
 
   const char *model_name;
   switch (this->model_) {
-    case ST7305_MODEL_WAVESHARE_400X300:
-      model_name = "Waveshare 400x300";
-      break;
-    case ST7305_MODEL_OSPTEK_200X200:
-      model_name = "Osptek 200x200";
-      break;
-    case ST7305_MODEL_CUSTOM:
-      model_name = "Custom";
-      break;
-    default:
-      model_name = "Unknown";
+  case ST7305_MODEL_WAVESHARE_400X300:
+    model_name = "Waveshare 400x300";
+    break;
+  case ST7305_MODEL_OSPTEK_200X200:
+    model_name = "Osptek 200x200";
+    break;
+  case ST7305_MODEL_CUSTOM:
+    model_name = "Custom";
+    break;
+  default:
+    model_name = "Unknown";
   }
 
   ESP_LOGCONFIG(TAG, "  Model: %s", model_name);
   ESP_LOGCONFIG(TAG, "  Resolution: %dx%d", this->width_, this->height_);
   ESP_LOGCONFIG(TAG, "  Orientation: %s",
-                this->orientation_ == ST7305_ORIENTATION_LANDSCAPE ? "Landscape (2x4)" : "Portrait (4x2)");
+                this->orientation_ == ST7305_ORIENTATION_LANDSCAPE
+                    ? "Landscape (2x4)"
+                    : "Portrait (4x2)");
   ESP_LOGCONFIG(TAG, "  Buffer Size: %zu bytes", this->buffer_size_);
-  ESP_LOGCONFIG(TAG, "  Rotated Size: %dx%d", this->get_width(), this->get_height());
+  ESP_LOGCONFIG(TAG, "  Rotated Size: %dx%d", this->get_width(),
+                this->get_height());
   LOG_PIN("  DC Pin: ", this->dc_pin_);
   LOG_PIN("  Reset Pin: ", this->reset_pin_);
 }
@@ -155,9 +161,9 @@ void ST7305RLCD::draw_absolute_pixel_internal(int x, int y, Color color) {
   const uint8_t bit_mask = this->pixel_bit_lut_[pixel_idx];
 
   if (color.is_on()) {
-    this->buffer_[buffer_idx] &= ~bit_mask;  // Black = bit clear
+    this->buffer_[buffer_idx] &= ~bit_mask; // Black = bit clear
   } else {
-    this->buffer_[buffer_idx] |= bit_mask;   // White = bit set
+    this->buffer_[buffer_idx] |= bit_mask; // White = bit set
   }
 }
 
@@ -271,15 +277,16 @@ void ST7305RLCD::init_display_() {
   // Gate Line Setting - Number of gate lines (panel-specific)
   this->send_command_(0xB0);
   if (this->model_ == ST7305_MODEL_WAVESHARE_400X300) {
-    this->send_data_(0x64);  // 100 * 3 = 300 lines
+    this->send_data_(0x64); // 100 * 3 = 300 lines
   } else if (this->model_ == ST7305_MODEL_OSPTEK_200X200) {
-    this->send_data_(0x32);  // 50 * 4 = 200 lines
+    this->send_data_(0x32); // 50 * 4 = 200 lines
   } else {
     // Custom: calculate based on height
     this->send_data_(static_cast<uint8_t>(this->height_ / 3));
   }
 
-  // Sleep Out - Exit sleep mode (required delay per datasheet, acceptable during setup)
+  // Sleep Out - Exit sleep mode (required delay per datasheet, acceptable
+  // during setup)
   this->send_command_(0x11);
   delay(200);
 
@@ -336,23 +343,27 @@ void ST7305RLCD::init_display_() {
 // =============================================================================
 
 void ST7305RLCD::init_pixel_lut_() {
-  const uint32_t total_pixels = static_cast<uint32_t>(this->width_) * this->height_;
+  const uint32_t total_pixels =
+      static_cast<uint32_t>(this->width_) * this->height_;
 
   // Allocate LUTs in PSRAM if available
-  ExternalRAMAllocator<uint16_t> index_allocator(ExternalRAMAllocator<uint16_t>::ALLOW_FAILURE);
-  ExternalRAMAllocator<uint8_t> bit_allocator(ExternalRAMAllocator<uint8_t>::ALLOW_FAILURE);
+  ExternalRAMAllocator<uint16_t> index_allocator(
+      ExternalRAMAllocator<uint16_t>::ALLOW_FAILURE);
+  ExternalRAMAllocator<uint8_t> bit_allocator(
+      ExternalRAMAllocator<uint8_t>::ALLOW_FAILURE);
 
   this->pixel_index_lut_ = index_allocator.allocate(total_pixels);
   this->pixel_bit_lut_ = bit_allocator.allocate(total_pixels);
 
   if (this->pixel_index_lut_ == nullptr || this->pixel_bit_lut_ == nullptr) {
-    ESP_LOGE(TAG, "Failed to allocate LUTs for %u pixels", total_pixels);
+    ESP_LOGE(TAG, "Failed to allocate LUTs for %lu pixels", total_pixels);
     return;
   }
 
-  ESP_LOGD(TAG, "Building pixel LUTs for %ux%u (%s)...",
-           this->width_, this->height_,
-           this->orientation_ == ST7305_ORIENTATION_LANDSCAPE ? "landscape" : "portrait");
+  ESP_LOGD(TAG, "Building pixel LUTs for %ux%u (%s)...", this->width_,
+           this->height_,
+           this->orientation_ == ST7305_ORIENTATION_LANDSCAPE ? "landscape"
+                                                              : "portrait");
 
   if (this->orientation_ == ST7305_ORIENTATION_LANDSCAPE) {
     this->init_lut_landscape_();
@@ -373,7 +384,7 @@ void ST7305RLCD::init_lut_landscape_() {
   // - Bit 3: (row 2, col 0), Bit 2: (row 2, col 1)
   // - Bit 1: (row 3, col 0), Bit 0: (row 3, col 1)
 
-  const uint16_t H4 = this->height_ >> 2;  // Vertical blocks (height/4)
+  const uint16_t H4 = this->height_ >> 2; // Vertical blocks (height/4)
 
   for (uint16_t y = 0; y < this->height_; y++) {
     const uint16_t inv_y = this->height_ - 1 - y;
@@ -405,7 +416,7 @@ void ST7305RLCD::init_lut_portrait_() {
   //
   // Bit position = 7 - (row * 4 + col)
 
-  const uint16_t W4 = this->width_ >> 2;  // Horizontal blocks (width/4)
+  const uint16_t W4 = this->width_ >> 2; // Horizontal blocks (width/4)
 
   for (uint16_t y = 0; y < this->height_; y++) {
     const uint16_t byte_y = y >> 1;
@@ -434,8 +445,8 @@ void ST7305RLCD::write_display_() {
     return;
 
   // Ensure display is awake
-  this->send_command_(0x38);  // High Power Mode
-  this->send_command_(0x29);  // Display On
+  this->send_command_(0x38); // High Power Mode
+  this->send_command_(0x29); // Display On
 
   // Set column address window
   this->send_command_(0x2A);
@@ -448,13 +459,13 @@ void ST7305RLCD::write_display_() {
   this->send_data_(this->row_end_);
 
   // Memory Write - CS must stay LOW for command + all data bytes
-  this->dc_pin_->digital_write(false);  // Command mode
-  this->enable();                        // CS LOW
-  this->write_byte(0x2C);               // Memory Write command
+  this->dc_pin_->digital_write(false); // Command mode
+  this->enable();                      // CS LOW
+  this->write_byte(0x2C);              // Memory Write command
 
-  this->dc_pin_->digital_write(true);   // Data mode (CS still LOW)
+  this->dc_pin_->digital_write(true); // Data mode (CS still LOW)
   this->write_array(this->buffer_, this->buffer_size_);
-  this->disable();                       // CS HIGH
+  this->disable(); // CS HIGH
 }
 
 // =============================================================================
@@ -480,38 +491,38 @@ void ST7305RLCD::send_data_(uint8_t data) {
 // =============================================================================
 
 void ST7305RLCD::sleep() {
-  this->send_command_(0x10);  // Sleep In
+  this->send_command_(0x10); // Sleep In
   ESP_LOGD(TAG, "Entered sleep mode");
 }
 
 void ST7305RLCD::wake() {
-  this->send_command_(0x11);  // Sleep Out
-  // Per ST7305 datasheet: 120ms delay required after sleep out before sending commands.
-  // This is acceptable because wake() is only called explicitly by user from lambda,
-  // not from loop() or update().
+  this->send_command_(0x11); // Sleep Out
+  // Per ST7305 datasheet: 120ms delay required after sleep out before sending
+  // commands. This is acceptable because wake() is only called explicitly by
+  // user from lambda, not from loop() or update().
   delay(120);
   ESP_LOGD(TAG, "Exited sleep mode");
 }
 
 void ST7305RLCD::low_power_mode() {
-  this->send_command_(0x39);  // Low Power Mode
+  this->send_command_(0x39); // Low Power Mode
   ESP_LOGD(TAG, "Switched to low power mode");
 }
 
 void ST7305RLCD::high_power_mode() {
-  this->send_command_(0x38);  // High Power Mode
+  this->send_command_(0x38); // High Power Mode
   ESP_LOGD(TAG, "Switched to high power mode");
 }
 
 void ST7305RLCD::display_on() {
-  this->send_command_(0x29);  // Display On
+  this->send_command_(0x29); // Display On
   ESP_LOGD(TAG, "Display on");
 }
 
 void ST7305RLCD::display_off() {
-  this->send_command_(0x28);  // Display Off
+  this->send_command_(0x28); // Display Off
   ESP_LOGD(TAG, "Display off");
 }
 
-}  // namespace st7305_rlcd
-}  // namespace esphome
+} // namespace st7305_rlcd
+} // namespace esphome
