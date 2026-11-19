@@ -49,13 +49,22 @@ public:
 
   // Configuration setters (called from Python codegen)
   void set_dc_pin(GPIOPin *pin) { this->dc_pin_ = pin; }
-  void set_reset_pin(GPIOPin *pin) { this->reset_pin_ = pin; }
+  void set_reset_pin(InternalGPIOPin *pin) { this->reset_pin_ = pin; }
   void set_model(ST7305Model model) { this->model_ = model; }
   void set_width(uint16_t width) { this->width_ = width; }
   void set_height(uint16_t height) { this->height_ = height; }
   void set_orientation(ST7305Orientation orientation) {
     this->orientation_ = orientation;
   }
+  /// Whether the first update() after boot runs the panel reset + init
+  /// sequence. Set false when the panel stayed powered and configured, e.g.
+  /// waking from MCU deep sleep. Must be set before the first update().
+  void set_reset_on_boot(bool reset_on_boot) {
+    this->reset_on_boot_ = reset_on_boot;
+  }
+
+  /// Run the panel hardware reset + init sequence now (blocks ~320ms)
+  void reset_and_init();
 
   /// Enter sleep mode (lowest power, display blanks, RAM retained)
   void sleep();
@@ -82,6 +91,7 @@ protected:
 
   void apply_model_settings_();
   void hardware_reset_();
+  void hold_reset_pin_();
   void init_display_();
   void init_pixel_lut_();
   void init_lut_landscape_();
@@ -91,7 +101,12 @@ protected:
   void send_data_(uint8_t data);
 
   GPIOPin *dc_pin_{nullptr};
-  GPIOPin *reset_pin_{nullptr};
+  /// Internal pin so its pad state can be held across deep sleep
+  InternalGPIOPin *reset_pin_{nullptr};
+
+  /// Set once the panel has been reset + initialised (or that was skipped)
+  bool initialized_{false};
+  bool reset_on_boot_{true};
 
   ST7305Model model_{ST7305_MODEL_WAVESHARE_400X300};
   ST7305Orientation orientation_{ST7305_ORIENTATION_LANDSCAPE};

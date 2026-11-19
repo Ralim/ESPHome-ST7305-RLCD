@@ -116,9 +116,10 @@ display:
 | `model`           | No       | `WAVESHARE_400X300` | Panel model                                               |
 | `cs_pin`          | Yes      | -                   | SPI chip select pin                                       |
 | `dc_pin`          | Yes      | -                   | Data/Command selection pin                                |
-| `reset_pin`       | No       | -                   | Hardware reset pin                                        |
+| `reset_pin`       | No       | -                   | Hardware reset pin (internal GPIO, held in deep sleep)    |
 | `rotation`        | No       | 0                   | Display rotation (0, 90, 180, 270)                        |
 | `update_interval` | No       | `never`             | Auto-refresh interval (use `component.update` for manual) |
+| `reset_on_boot`   | No       | `true`              | Reset + init panel on first update (false: keep as-is)    |
 
 ### Custom Panel Options
 
@@ -155,6 +156,11 @@ The ST7305 is a reflective LCD - content is retained in low-power states.
 | `high_power_mode()` | ~5mA  | ~51Hz refresh, for animations                  |
 | `display_on()`      | -     | Turn display on                                |
 | `display_off()`     | Low   | Turn display off, RAM retained                 |
+| `reset_and_init()`  | -     | Force panel hardware reset + init (~320ms)     |
+
+To skip panel re-init when waking from deep sleep (panel kept powered), call
+`set_reset_on_boot(esp_reset_reason() != ESP_RST_DEEPSLEEP)` from `on_boot`
+before the first update; see `components/st7305_rlcd/example.yaml`.
 
 ## Colors
 

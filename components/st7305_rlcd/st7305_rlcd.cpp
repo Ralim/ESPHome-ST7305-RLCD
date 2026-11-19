@@ -14,6 +14,10 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
+#ifdef USE_ESP32
+#include <driver/gpio.h>
+#endif
+
 namespace esphome {
 namespace st7305_rlcd {
 
@@ -34,6 +38,12 @@ void ST7305RLCD::setup() {
   this->dc_pin_->digital_write(true);
 
   if (this->reset_pin_ != nullptr) {
+#ifdef USE_ESP32
+    // Preload the output level high before configuring the pad. After deep
+    // sleep the reset pin may still be held high; this keeps the pad high if
+    // the hold is released during pin setup, so the panel is not reset early.
+    this->reset_pin_->digital_write(true);
+#endif
     this->reset_pin_->setup();
   }
 
@@ -60,10 +70,8 @@ void ST7305RLCD::setup() {
     return;
   }
 
-  // Hardware initialization
-  this->hardware_reset_();
-  this->init_display_();
-
+  // Panel reset + init is deferred to the first update() (see reset_on_boot_)
+  // to keep boot fast and leave a still-configured panel untouched.
   ESP_LOGCONFIG(TAG, "ST7305 RLCD setup complete");
 }
 
@@ -135,6 +143,7 @@ void ST7305RLCD::dump_config() {
                 this->get_height());
   LOG_PIN("  DC Pin: ", this->dc_pin_);
   LOG_PIN("  Reset Pin: ", this->reset_pin_);
+  ESP_LOGCONFIG(TAG, "  Reset On Boot: %s", YESNO(this->reset_on_boot_));
 }
 
 // =============================================================================
@@ -142,8 +151,27 @@ void ST7305RLCD::dump_config() {
 // =============================================================================
 
 void ST7305RLCD::update() {
+  if (!this->initialized_) {
+    if (this->reset_on_boot_) {
+      this->reset_and_init();
+    } else {
+      // Panel kept power and configuration (e.g. MCU deep sleep with reset
+      // held high), so reuse it as-is and just re-arm the reset pin hold.
+      ESP_LOGD(TAG, "Skipping panel reset + init (reset_on_boot is false)");
+      this->hold_reset_pin_();
+      this->initialized_ = true;
+    }
+  }
+
   this->do_update_();
   this->write_display_();
+}
+
+void ST7305RLCD::reset_and_init() {
+  this->hardware_reset_();
+  this->init_display_();
+  this->initialized_ = true;
+  ESP_LOGD(TAG, "Panel reset + init complete");
 }
 
 void ST7305RLCD::fill(Color color) {
@@ -176,13 +204,41 @@ void ST7305RLCD::hardware_reset_() {
     return;
 
   // Hardware reset timing per ST7305 datasheet.
-  // These delays are acceptable as they only occur during setup().
+  // Output is driven high before releasing any hold latched from a previous
+  // deep sleep, so the pad does not glitch low when the hold is released.
   this->reset_pin_->digital_write(true);
+#ifdef USE_ESP32
+  gpio_hold_dis(static_cast<gpio_num_t>(this->reset_pin_->get_pin()));
+#endif
   delay(50);
   this->reset_pin_->digital_write(false);
   delay(20);
   this->reset_pin_->digital_write(true);
   delay(50);
+
+  this->hold_reset_pin_();
+}
+
+void ST7305RLCD::hold_reset_pin_() {
+  if (this->reset_pin_ == nullptr)
+    return;
+
+#ifdef USE_ESP32
+  const auto reset_gpio = static_cast<gpio_num_t>(this->reset_pin_->get_pin());
+  // Latch reset high so the panel is not reset (and keeps its image) while
+  // the MCU is in deep sleep.
+  if (gpio_hold_en(reset_gpio) != ESP_OK) {
+    ESP_LOGW(TAG, "Failed to enable pad hold on reset pin GPIO%d",
+             static_cast<int>(reset_gpio));
+  }
+#if defined(USE_ESP32_VARIANT_ESP32) || defined(USE_ESP32_VARIANT_ESP32S2) ||  \
+    defined(USE_ESP32_VARIANT_ESP32S3) ||                                      \
+    defined(USE_ESP32_VARIANT_ESP32C2) || defined(USE_ESP32_VARIANT_ESP32C3)
+  // Chip-wide: on these variants digital pad holds only persist through deep
+  // sleep once this is enabled (newer chips hold per-pad via gpio_hold_en).
+  gpio_deep_sleep_hold_en();
+#endif
+#endif
 }
 
 void ST7305RLCD::init_display_() {
@@ -285,8 +341,8 @@ void ST7305RLCD::init_display_() {
     this->send_data_(static_cast<uint8_t>(this->height_ / 3));
   }
 
-  // Sleep Out - Exit sleep mode (required delay per datasheet, acceptable
-  // during setup)
+  // Sleep Out - Exit sleep mode (required delay per datasheet, only incurred
+  // when the panel is (re)initialised)
   this->send_command_(0x11);
   delay(200);
 

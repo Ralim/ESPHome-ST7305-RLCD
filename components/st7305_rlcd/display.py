@@ -20,6 +20,7 @@ DEPENDENCIES = ["spi"]
 AUTO_LOAD = ["display"]
 
 CONF_ORIENTATION = "orientation"
+CONF_RESET_ON_BOOT = "reset_on_boot"
 
 st7305_rlcd_ns = cg.esphome_ns.namespace("st7305_rlcd")
 ST7305RLCD = st7305_rlcd_ns.class_(
@@ -61,7 +62,7 @@ CONFIG_SCHEMA = cv.All(
         {
             cv.GenerateID(): cv.declare_id(ST7305RLCD),
             cv.Required(CONF_DC_PIN): pins.gpio_output_pin_schema,
-            cv.Optional(CONF_RESET_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_RESET_PIN): pins.internal_gpio_output_pin_schema,
             cv.Optional(CONF_MODEL, default="WAVESHARE_400X300"): cv.enum(
                 MODELS, upper=True, space="_"
             ),
@@ -69,6 +70,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_WIDTH): cv.int_range(min=1, max=800),
             cv.Optional(CONF_HEIGHT): cv.int_range(min=1, max=800),
             cv.Optional(CONF_ORIENTATION): cv.enum(ORIENTATIONS, upper=True),
+            cv.Optional(CONF_RESET_ON_BOOT, default=True): cv.boolean,
         }
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -92,6 +94,7 @@ async def to_code(config):
         cg.add(var.set_reset_pin(reset_pin))
 
     cg.add(var.set_model(config[CONF_MODEL]))
+    cg.add(var.set_reset_on_boot(config[CONF_RESET_ON_BOOT]))
 
     if config[CONF_MODEL] == "CUSTOM":
         cg.add(var.set_width(config[CONF_WIDTH]))

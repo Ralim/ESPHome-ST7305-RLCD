@@ -6,6 +6,11 @@
 # This example demonstrates the ST7305 RLCD driver for ESPHome.
 # The reflective LCD requires no backlight and is highly visible in daylight.
 #
+# It also shows a deep sleep cycle where the panel stays powered: the reset
+# pin is held high through deep sleep, so on a deep sleep wake the panel keeps
+# its configuration and the reset + init sequence is skipped. Any other reset
+# (power on, reset button, watchdog, crash) re-initialises the panel.
+#
 # Hardware:
 #   - Board: Waveshare ESP32-S3-RLCD-4.2
 #   - Display: 400x300 1-bit reflective LCD
@@ -16,6 +21,15 @@
 esphome:
   name: rlcd-display
   friendly_name: "RLCD Display"
+  on_boot:
+    # Below the display's setup priority (600) so its buffer is allocated
+    priority: 400
+    then:
+      - lambda: |-
+          // Only reset + init the panel when the MCU did not wake from deep
+          // sleep. Must be decided before the display's first update().
+          id(my_display).set_reset_on_boot(esp_reset_reason() != ESP_RST_DEEPSLEEP);
+      - component.update: my_display
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -30,6 +44,12 @@ psram:
 # Logging
 logger:
   level: DEBUG
+
+# Stay awake briefly after each boot, then deep sleep
+deep_sleep:
+  id: deep_sleep_control
+  run_duration: 10s
+  sleep_duration: 5min
 
 # SPI bus configuration
 spi:
@@ -49,6 +69,9 @@ font:
   - file: "gfonts://Roboto"
     id: roboto
     size: 40
+  - file: "gfonts://Roboto"
+    id: roboto_small
+    size: 20
 
 # =============================================================================
 # Display Configuration
@@ -61,6 +84,9 @@ display:
     cs_pin: GPIO40
     dc_pin: GPIO5
     reset_pin: GPIO41
+    # Default true; overridden at boot by the on_boot lambda above. Call
+    # id(my_display).reset_and_init() to force a panel reset + init at any time.
+    reset_on_boot: true
     update_interval: never
 
     lambda: |-
@@ -71,4 +97,6 @@ display:
       // Print "Hello World!" in the center of the screen
       // Arguments: x, y, font_id, color, alignment, text
       it.printf(w / 2, h / 2, id(roboto), COLOR_ON, TextAlign::CENTER, "Hello World!");
+      it.printf(w / 2, h / 2 + 40, id(roboto_small), COLOR_ON, TextAlign::CENTER,
+                esp_reset_reason() == ESP_RST_DEEPSLEEP ? "Woke from deep sleep" : "Panel reset + init");
       id(my_display).low_power_mode();
