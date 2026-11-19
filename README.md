@@ -32,6 +32,7 @@ If your panel matches the resolution and orientation of a predefined model, use 
 - Full ESPHome display API (print, line, rectangle, circle, etc.)
 - Rotation support: 0°, 90°, 180°, 270°
 - Power modes for battery optimization
+- Deep sleep friendly: panel init deferred to first update, reset pin held through deep sleep, optional skip of re-init on wake
 - PSRAM support for lookup tables
 
 ## Installation
@@ -158,9 +159,60 @@ The ST7305 is a reflective LCD - content is retained in low-power states.
 | `display_off()`     | Low   | Turn display off, RAM retained                 |
 | `reset_and_init()`  | -     | Force panel hardware reset + init (~320ms)     |
 
-To skip panel re-init when waking from deep sleep (panel kept powered), call
-`set_reset_on_boot(esp_reset_reason() != ESP_RST_DEEPSLEEP)` from `on_boot`
-before the first update; see `components/st7305_rlcd/example.yaml`.
+### Panel Init and Deep Sleep
+
+The panel hardware reset + init sequence (~320ms of blocking delays) is not run
+in `setup()`; it runs once at the start of the first display update. With the
+default `update_interval: never`, nothing is sent to the panel until
+`component.update` is called.
+
+On ESP32 targets the reset pin is latched high (`gpio_hold_en` +
+`gpio_deep_sleep_hold_en`) after init, so the panel is not reset while the MCU
+is in deep sleep. This requires `reset_pin` to be a native GPIO (not an I/O
+expander pin). Note `gpio_deep_sleep_hold_en` is chip-wide on ESP32/S2/S3/C2/C3,
+so any other pads held with `gpio_hold_en` are also held during deep sleep.
+
+If the panel stays powered while the MCU deep sleeps, its configuration and
+image survive, and the reset + init can be skipped on wake:
+
+- `reset_on_boot: false` skips it on every boot.
+- `set_reset_on_boot(bool)` decides at runtime; it must be called before the
+  first update.
+- `reset_and_init()` forces it at any time (e.g. if the panel lost power).
+
+To skip it only on a deep sleep wake, and still reset + init the panel on power
+on, reset button, watchdog or crash:
+
+```yaml
+esphome:
+  on_boot:
+    # Below the display's setup priority (600) so its buffer is allocated
+    priority: 400
+    then:
+      - lambda: |-
+          id(my_display).set_reset_on_boot(esp_reset_reason() != ESP_RST_DEEPSLEEP);
+      - component.update: my_display
+
+deep_sleep:
+  run_duration: 10s
+  sleep_duration: 5min
+
+display:
+  - platform: st7305_rlcd
+    id: my_display
+    cs_pin: GPIO40
+    dc_pin: GPIO5
+    reset_pin: GPIO41
+    update_interval: never
+    lambda: |-
+      it.print(10, 10, id(font), "Hello World!");
+```
+
+See `components/st7305_rlcd/example.yaml` for a complete configuration.
+
+**Note:** only the reset pin is held during deep sleep. CS/CLK/MOSI return to
+their default pad state, so keep CS pulled high externally if spurious SPI
+traffic during sleep is a concern.
 
 ## Colors
 
@@ -220,6 +272,8 @@ display:
 1. Check SPI wiring (CLK, MOSI, CS, DC)
 2. Verify reset pin is connected
 3. Check power supply (3.3V)
+4. With `update_interval: never`, make sure `component.update` is called (the panel is only initialised on the first update)
+5. If `reset_on_boot` is false (or set false at runtime) but the panel lost power, call `reset_and_init()`
 
 ### Display shows garbage
 
@@ -234,6 +288,7 @@ display:
 
 ## Version History
 
+- **Unreleased** - Panel init deferred to first update, reset pin held through deep sleep, `reset_on_boot` option and `reset_and_init()`; `reset_pin` must be a native GPIO
 - **v2.0.0** - Multi-panel support (Waveshare, Osptek, Custom)
 - **v1.0.0** - Initial release (Waveshare 400×300 only)
 
